@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+from argparse import ArgumentParser
+from flickrdump import flickrdump
+
+def main():
+    """
+    Flickr-Dump CLI funciton.
+    """
+    parser = ArgumentParser(description='Flickr Dump')
+    parser.add_argument('-A', '--api-key', required=True,
+        help='An API-key for accessing the Flickr API.')
+    parser.add_argument('-S', '--api-secret', required=True,
+        help='An API-secret for accessing the Flickr API.')
+    parser.add_argument('-U', '--user-id', required=True,
+        help='Your Flickr UserID, Can be found at http://idgettr.com/')
+
+    args = parser.parse_args()
+    return flickrdump.dump(args.api_key, args.api_secret, args.user_id)
+
+if __name__ == '__main__':
+    exit(main())

@@ -14,9 +14,17 @@ import os
 from ctypes import c_bool
 
 def dump(api, secret, user_id, target='./data'):
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_dump(api, secret, user_id, target))
-    loop.close()
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(_dump(api, secret, user_id, target))
+    except OSError:
+        return 1
+    except KeyboardInterrupt:
+        print('Stopped')
+    finally:
+        loop.close()
+
+    return 0
 
 def _dump(api, secret, user_id, target):
     if not os.path.exists(target):
