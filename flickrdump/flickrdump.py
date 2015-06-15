@@ -1,3 +1,4 @@
+from __future__ import division
 import sys
 if sys.version_info < (3, 4):
     raise Exception('')
@@ -9,6 +10,8 @@ import functools
 import flickrapi
 import itertools
 import os
+
+from ctypes import c_bool
 
 def dump(api, secret, user_id, target='./data'):
     loop = asyncio.get_event_loop()
@@ -29,11 +32,29 @@ def _dump(api, secret, user_id, target):
         coros.append(asyncio.Task(_get_urls(flickr, user_id, i + 1, target)))
 
     yield from asyncio.gather(*coros)
+    sys.stdout.write('\n')
+    print('done!')
+
+COUNT_LOCK = asyncio.Lock()
+COUNT_DLS = [0, 0]
+@asyncio.coroutine
+def _count(i, incr=False):
+    global COUNT_DLS
+    with (yield from COUNT_LOCK):
+        if incr:
+            COUNT_DLS[i] += 1
+        return COUNT_DLS[i]
 
 @asyncio.coroutine
 def _download(url, target):
     filename = url.split('/')[-1]
-    print(filename, 'downloading')
+
+    dl = yield from _count(1, True)
+    cnt = yield from _count(0)
+    sys.stdout.write('[{}/{}, {:.02f}%] Downloading..\r'.format(
+        cnt, dl, (cnt / dl * 100.0)))
+    sys.stdout.flush()
+
     target = '{}/{}'.format(target, filename)
     r = yield from aiohttp.request('get', url)
     with open(target, 'wb') as fd:
@@ -43,6 +64,8 @@ def _download(url, target):
                 break
             fd.write(chunk)
     r.close()
+
+    cnt = yield from _count(0, True)
 
 @asyncio.coroutine
 def _get_urls(flickr, user_id, p, target):
@@ -67,7 +90,7 @@ def _get_url(flickr, item_id, item_secret):
     sizes = sizes.get('sizes').get('size')
     original = ''
     try:
-        original = next(d for (idx, d) in enumerate(sizes) if d['label'] == 'Original')
+        original = next(d for d in sizes if d['label'] == 'Original')
     except: pass
 
     return original.get('source', '')
