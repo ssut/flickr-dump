@@ -4,6 +4,7 @@ if sys.version_info < (3, 4):
     exit(1)
 
 import asyncio
+import aiohttp
 import functools
 import flickrapi
 import itertools
@@ -15,26 +16,19 @@ def dump(api, secret, user_id, target='./data'):
     loop.close()
 
 def _dump(api, secret, user_id, target):
+    if not os.path.exists(target):
+        os.makedirs(target)
+
     flickr = flickrapi.FlickrAPI(api, secret, format='parsed-json')
     pages = flickr.people.getPublicPhotos(
         user_id=user_id, per_page=500, page=1)['photos']['pages']
-    print('Total page to download:', pages)
+    print('Total pages to download:', pages)
 
     coros = []
     for i in range(pages):
-        coros.append(asyncio.Task(_get_urls(flickr, user_id, i + 1)))
+        coros.append(asyncio.Task(_get_urls(flickr, user_id, i + 1, target)))
 
-    urls = yield from asyncio.gather(*coros)
-    urls = list(itertools.chain.from_iterable(urls))
-    print('Total photos to download:', len(urls))
-
-    download(urls, target)
-
-def download(urls, target):
-    if not os.path.exists(target):
-        os.makedirs(target)
-    for i, url in enumerate(urls):
-        asyncio.async(_download(url, target))
+    yield from asyncio.gather(*coros)
 
 @asyncio.coroutine
 def _download(url, target):
@@ -48,19 +42,20 @@ def _download(url, target):
             if not chunk:
                 break
             fd.write(chunk)
+    r.close()
 
 @asyncio.coroutine
-def _get_urls(flickr, user_id, p):
+def _get_urls(flickr, user_id, p, target):
     items = flickr.people.getPublicPhotos(
         user_id=user_id, per_page=500, page=p)['photos']['photo']
-    
-    urls = []
+    count = len(items)
+
     for i, item in enumerate(items):
         item_id, item_secret = item.get('id'), item.get('secret')
         res = yield from asyncio.async(_get_url(flickr, item_id, item_secret))
-        urls.append(res)
+        asyncio.async(_download(res, target))
 
-    return urls
+    return count
 
 @asyncio.coroutine
 def _get_url(flickr, item_id, item_secret):
