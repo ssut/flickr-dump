@@ -13,9 +13,12 @@ def main():
         help='An API-secret for accessing the Flickr API.')
     parser.add_argument('-U', '--user-id', required=True,
         help='Your Flickr UserID, Can be found at http://idgettr.com/')
+    parser.add_argument('-P', '--path', default='./data',
+        help='The target path to download photos')
 
     args = parser.parse_args()
-    return flickrdump.dump(args.api_key, args.api_secret, args.user_id)
+    return flickrdump.dump(args.api_key, args.api_secret, args.user_id,
+                           args.path)
 
 if __name__ == '__main__':
     exit(main())
