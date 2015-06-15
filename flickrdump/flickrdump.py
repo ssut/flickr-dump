@@ -7,8 +7,9 @@ import asyncio
 import functools
 import flickrapi
 import itertools
+import os
 
-def dump(api, secret, user_id, target='.data'):
+def dump(api, secret, user_id, target='./data'):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(_dump(api, secret, user_id, target))
     loop.close()
@@ -17,6 +18,7 @@ def _dump(api, secret, user_id, target):
     flickr = flickrapi.FlickrAPI(api, secret, format='parsed-json')
     pages = flickr.people.getPublicPhotos(
         user_id=user_id, per_page=500, page=1)['photos']['pages']
+    print('Total page to download:', pages)
 
     coros = []
     for i in range(pages):
@@ -24,8 +26,28 @@ def _dump(api, secret, user_id, target):
 
     urls = yield from asyncio.gather(*coros)
     urls = list(itertools.chain.from_iterable(urls))
+    print('Total photos to download:', len(urls))
 
-    download(urls)
+    download(urls, target)
+
+def download(urls, target):
+    if not os.path.exists(target):
+        os.makedirs(target)
+    for i, url in enumerate(urls):
+        asyncio.async(_download(url, target))
+
+@asyncio.coroutine
+def _download(url, target):
+    filename = url.split('/')[-1]
+    print(filename, 'downloading')
+    target = '{}/{}'.format(target, filename)
+    r = yield from aiohttp.request('get', url)
+    with open(target, 'wb') as fd:
+        while True:
+            chunk = yield from r.content.read(1024)
+            if not chunk:
+                break
+            fd.write(chunk)
 
 @asyncio.coroutine
 def _get_urls(flickr, user_id, p):
