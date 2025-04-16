@@ -16,8 +16,6 @@ async def dump(api, secret, user_id, target='./data'):
         return 1
     except KeyboardInterrupt:
         print('Stopped')
-    finally:
-        loop.close()
 
     return 0
 
